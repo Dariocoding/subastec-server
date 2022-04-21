@@ -26,7 +26,9 @@ import { PaqueteBidsModule } from './modules/settings/paquete-bids/paquete-bids.
 		SettingsModule,
 		ContactosModule,
 		MailModule,
-		MongooseModule.forRoot('mongodb://localhost/subastec'),
+		MongooseModule.forRoot(
+			'mongodb+srv://holasoydark2:fA96NYzykm9AZDwQ@cluster0.xoguh.mongodb.net/subastec'
+		),
 		SubastasModule,
 		PaqueteBidsModule,
 	],
