@@ -12,7 +12,7 @@ import {
 @Entity('pagos')
 export class Pago {
 	@PrimaryGeneratedColumn('increment')
-	idpago: string;
+	idpago: number;
 
 	@ManyToOne(() => User, user => user.pagos)
 	@JoinColumn({ name: 'userid' })

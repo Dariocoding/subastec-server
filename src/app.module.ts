@@ -16,7 +16,7 @@ import { FavoritosModule } from './modules/favoritos/favoritos.module';
 import { PagosModule } from './modules/pagos/pagos.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import typeormConfig from './config/mysql.config';
+import { dataSourceTypeOrm } from './config/mysql.config';
 import { CustomExceptionsFilter } from './CustomExceptionFilter';
 import { PujaModule } from './modules/puja/puja.module';
 import { SubastasDestacadasModule } from './modules/subastas-destacadas/subastas-destacadas.module';
@@ -27,7 +27,7 @@ import { CronModule } from './cron/cron.module';
 @Module({
 	imports: [
 		ScheduleModule.forRoot(),
-		TypeOrmModule.forRoot(typeormConfig),
+		TypeOrmModule.forRoot({ ...dataSourceTypeOrm, autoLoadEntities: true }),
 		AuthModule,
 		UsersModule,
 		ProductosModule,

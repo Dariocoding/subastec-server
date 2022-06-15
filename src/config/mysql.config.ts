@@ -1,4 +1,5 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { DataSource, DataSourceOptions } from 'typeorm';
 import { Categoria } from 'src/modules/categorias/entities';
 import { Favorito } from 'src/modules/favoritos/entities';
 import { Pago } from 'src/modules/pagos/entities/pago.entity';
@@ -16,7 +17,7 @@ const pathEnv = process.env.NODE_ENV || 'production';
 
 require('dotenv').config({ path: `${pathEnv}.env` });
 
-const exportsData: TypeOrmModuleOptions = {
+export const dataSourceTypeOrm: DataSourceOptions = {
 	namingStrategy: new SnakeNamingStrategy(),
 	type: 'mysql',
 	host: process.env.DB_HOST,
@@ -40,15 +41,15 @@ const exportsData: TypeOrmModuleOptions = {
 		Invitacion,
 		SubastaDestacada,
 	],
+
 	synchronize: false,
 	migrations: [__dirname + '/../migrations/**/*{.ts,.js}'],
-	cli: {
-		migrationsDir: './src/migrations',
-	},
+
 	migrationsRun: pathEnv === 'development' ? true : false,
 
 	logging: pathEnv === 'development' ? true : false,
-	autoLoadEntities: true,
 };
+
+const exportsData = new DataSource(dataSourceTypeOrm);
 
 export default exportsData;

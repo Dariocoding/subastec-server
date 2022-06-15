@@ -4,7 +4,7 @@ import { CreateSubastasDto, UpdateSubastaDto } from './dto';
 import { convertToFloat } from 'src/utils';
 import { SettingsService } from '../settings/settings/settings.service';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository, Connection, IsNull, FindCondition, MoreThan } from 'typeorm';
+import { Not, Repository, IsNull, MoreThan, FindOptionsWhere } from 'typeorm';
 import { Producto } from '../productos/entities';
 import { PaqueteBid } from '../settings/paquete-bids/entities/paquete-bid.entity';
 import { SubastasDestacadasService } from '../subastas-destacadas/subastas-destacadas.service';
@@ -22,7 +22,6 @@ export class SubastasService {
 		@InjectRepository(PaqueteBid) private paqueteBidRepository: Repository<PaqueteBid>,
 		@InjectRepository(Puja) private pujaRepository: Repository<Puja>,
 		private settingsService: SettingsService,
-		private connection: Connection,
 		private subastasDestacadasService: SubastasDestacadasService,
 		private productosService: ProductosService,
 		private paqueteBidService: PaqueteBidsService,
@@ -32,7 +31,7 @@ export class SubastasService {
 	async countTotalSubastas() {
 		const date = new Date();
 
-		const req: { total: number } = await this.connection.query(`
+		const req: { total: number } = await this.subastaRepository.query(`
 			SELECT count(*) AS total
 			FROM subastas 
 			WHERE MONTH(date_created) = '${date.getMonth() + 1}'
@@ -61,7 +60,7 @@ export class SubastasService {
 		return subasta;
 	}
 
-	async getSubastas(where: FindCondition<Subasta> = {}) {
+	async getSubastas(where: FindOptionsWhere<Subasta> = {}) {
 		let subastas = await this.subastaRepository
 			.createQueryBuilder('subasta')
 			.select([

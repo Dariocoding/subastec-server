@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindCondition, FindManyOptions, Repository } from 'typeorm';
+import { FindManyOptions, Repository } from 'typeorm';
 import { Favorito } from '../favoritos/entities';
 import { Subasta } from '../subastas/entities';
 import { User } from '../users/entities';
