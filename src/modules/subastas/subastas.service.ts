@@ -11,7 +11,6 @@ import { SubastasDestacadasService } from '../subastas-destacadas/subastas-desta
 import * as moment from 'moment-timezone';
 import { ProductosService } from '../productos/productos.service';
 import { PaqueteBidsService } from '../settings/paquete-bids/paquete-bids.service';
-import { CronJob, job } from 'cron';
 import { CronService } from 'src/cron/cron.service';
 import { Puja } from '../puja/entities/puja.entity';
 
