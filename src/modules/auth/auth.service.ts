@@ -115,7 +115,6 @@ export class AuthService {
 	}
 
 	async getTokens(user: User) {
-		console.log(user);
 		const [at, rt] = await Promise.all([
 			this.jwtService.signAsync(
 				{ iduser: user.iduser, rolid: user.rolid },

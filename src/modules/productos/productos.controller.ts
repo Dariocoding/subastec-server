@@ -84,7 +84,6 @@ export class ProductosController {
 		@Param('idproducto') idproducto: string
 	) {
 		this.usersService.verifyAdminByRolId(currentUserRolId);
-		console.log(idproducto, files);
 		const imgs = await this.productosService.insertFilesProducto(+idproducto, files);
 		return { msg: 'Imagenes subidas correctamente.', imgs };
 	}

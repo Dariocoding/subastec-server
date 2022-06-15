@@ -239,7 +239,6 @@ export class SubastasService {
 				.orderBy('SUM(puja.cantidadBids)', 'DESC')
 				.where({ subastaid: subasta.idsubasta })
 				.getRawMany();
-			console.log(pujas);
 		} else {
 		}
 	}

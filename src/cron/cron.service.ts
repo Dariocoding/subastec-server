@@ -10,7 +10,6 @@ export class CronService {
 	startCronJob(data: { date: string | Date; fn: Fn; name: string }) {
 		const fechaPrueba = new Date();
 		fechaPrueba.setSeconds(fechaPrueba.getSeconds() + 10);
-		console.log(fechaPrueba);
 		const job = new CronJob(
 			/* data.date */ fechaPrueba,
 			data.fn,

@@ -12,7 +12,7 @@ import { Subasta } from 'src/modules/subastas/entities';
 import { Invitacion, Rol, User } from 'src/modules/users/entities';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
 
-const pathEnv = process.env.NODE_ENV || 'development';
+const pathEnv = process.env.NODE_ENV || 'production';
 
 require('dotenv').config({ path: `${pathEnv}.env` });
 
