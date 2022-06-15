@@ -1,5 +1,4 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
 import { UsersService } from '../users/users.service';
 import { PaqueteBidsService } from '../settings/paquete-bids/paquete-bids.service';
 import { InjectRepository } from '@nestjs/typeorm';

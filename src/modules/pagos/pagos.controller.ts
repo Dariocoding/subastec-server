@@ -1,7 +1,6 @@
 import { Controller, Get, Post, Body, Param } from '@nestjs/common';
 import { PagosService } from './pagos.service';
 import { GetCurrentUserId } from '../auth/common/decorators';
-import { Prisma } from '@prisma/client';
 import { UsersService } from '../users/users.service';
 import { CreatePagoDto } from './dto/create-pago.dto';
 
