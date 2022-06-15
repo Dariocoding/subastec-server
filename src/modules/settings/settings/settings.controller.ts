@@ -1,8 +1,7 @@
 import { Controller, Get, Put, Body } from '@nestjs/common';
-import { GetCurrentUserId, Public } from '../../auth/common/decorators';
+import { GetCurrentRolId, Public } from '../../auth/common/decorators';
 import { UsersService } from '../../users/users.service';
 import { SettingsDto } from './dto';
-import { Settings } from './interfaces';
 import { SettingsService } from './settings.service';
 
 @Controller('settings')
@@ -11,16 +10,13 @@ export class SettingsController {
 
 	@Public()
 	@Get('/')
-	async getConfiguracion(): Promise<Settings> {
+	async getConfiguracion() {
 		return await this.settingsService.getConfiguracion();
 	}
 
 	@Put('/')
-	async setConfiguracion(
-		@GetCurrentUserId() userId: string,
-		@Body() body: SettingsDto
-	): Promise<object> {
-		await this.usersService.verifyAdmin(userId);
+	async setConfiguracion(@GetCurrentRolId() userRolId: number, @Body() body: SettingsDto) {
+		this.usersService.verifyAdminByRolId(userRolId);
 		await this.settingsService.setConfiguracion(body);
 		return { msg: 'Configuración actualizada correctamente.' };
 	}

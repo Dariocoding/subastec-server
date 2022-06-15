@@ -1,90 +1,72 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { Productos } from './interfaces';
-import { Model } from 'mongoose';
-import { productoDto } from './dto';
-import { crearURLAmigable, editFileName, moveFile, deleteFile, convertToFloat } from 'src/helpers';
-import { Images } from './interfaces';
-import { hexTestMongoObjId } from 'src/helpers';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { Producto, Imagenes } from './entities';
+import { CreateProductoDto, UpdateProductoDto } from './dto';
+import { crearURLAmigable, editFileName, moveFile, deleteFile, convertToFloat } from 'src/utils';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Not, Repository } from 'typeorm';
 @Injectable()
 export class ProductosService {
 	constructor(
-		@InjectModel('Productos') private productosModel: Model<Productos>,
-		@InjectModel('Images') private imagesModel: Model<Images>
+		@InjectRepository(Producto) private productoRepository: Repository<Producto>,
+		@InjectRepository(Imagenes) private imagenesRepository: Repository<Imagenes>
 	) {}
 
-	async find(): Promise<Productos[]> {
-		return this.setPrecioProductos(
-			await this.productosModel
-				.aggregate([
-					{ $match: { status: { $ne: 0 } } },
-					...this.unwindCategoria(),
-				])
-				.sort({ _id: -1 })
-		);
+	countTotalProductos() {
+		return this.productoRepository.count({ where: { status: Not(0) } });
 	}
 
-	async findIdName(): Promise<Productos[]> {
-		return await this.productosModel.find({ status: { $ne: 0 } }, { nombre: 1 });
+	findAll() {
+		return this.productoRepository.find({
+			where: { status: Not(0) },
+			order: { idproducto: 'DESC' },
+			relations: ['categoria'],
+		});
 	}
 
-	async findById(productoId: string): Promise<Productos> {
-		const producto = await this.productosModel.aggregate([
-			{ $match: { _id: hexTestMongoObjId(productoId), status: { $ne: 0 } } },
-			...this.unwindCategoria(),
-		]);
-
-		if (!producto[0]) throw new NotFoundException('Este producto no existe.');
-		return this.setPrecioProductos(producto)[0];
+	findAllIdName() {
+		return this.productoRepository.find({ where: { status: Not(0) } });
 	}
 
-	async findByCategoria(categoraId: string): Promise<Productos[]> {
-		const productos = await this.productosModel
-			.aggregate([
-				{
-					$match: {
-						categoriaid: hexTestMongoObjId(categoraId),
-						status: { $ne: 0 },
-					},
-				},
-				...this.unwindCategoria(),
-			])
-			.sort({ _id: -1 });
-		return this.setPrecioProductos(productos);
+	async findById(idproducto: number) {
+		const producto = await this.productoRepository.findOne({
+			where: { idproducto, status: Not(0) },
+			relations: ['categoria'],
+		});
+		producto.imagenes = await this.imagenesRepository.find({
+			where: { productoid: idproducto },
+		});
+		return producto;
 	}
 
-	async countByCategoria(categoriaId: string): Promise<number> {
-		return await this.productosModel
-			.find({
-				categoriaid: categoriaId,
-				status: { $ne: 0 },
-			})
-			.count();
+	findByCategoria(categoriaid: number) {
+		return this.productoRepository.find({ where: { categoriaid, status: Not(0) } });
 	}
 
-	async crearProducto(producto: productoDto, files: Array<Express.Multer.File>) {
-		producto.ruta = crearURLAmigable(producto.nombre);
-		const reqP = await this.findByRuta(producto.ruta);
+	countByCategoria(categoriaid: number) {
+		return this.productoRepository.count({ where: { categoriaid, status: Not(0) } });
+	}
+
+	async crearProducto(data: CreateProductoDto, files: Array<Express.Multer.File>) {
+		data.ruta = crearURLAmigable(data.nombre);
+		data.status = +data.status;
+		data.categoriaid = +data.categoriaid;
+		const reqP = await this.findByRuta(data.ruta);
 		if (reqP) throw new BadRequestException('Este nombre de producto ya existe');
-		producto.precio = convertToFloat(producto.precio);
-		const newProducto = new this.productosModel(producto);
-		await newProducto.save();
-		await this.insertFilesProducto(newProducto._id, files);
-		return await this.findById(newProducto._id);
+		data.precio = convertToFloat(data.precio);
+		const newProducto = await this.productoRepository.save(data);
+		await this.insertFilesProducto(newProducto.idproducto, files);
+		return this.findById(newProducto.idproducto);
 	}
 
-	async insertFilesProducto(
-		productoid: string,
-		files: Array<Express.Multer.File>
-	): Promise<Images[]> {
-		const arrFiles: Promise<Images[]> = new Promise(async resolve => {
-			let images: Images[] = [];
+	async insertFilesProducto(idproducto: number, files: Array<Express.Multer.File>) {
+		const arrFiles = new Promise(async resolve => {
+			let images: Imagenes[] = [];
 			let processedImages: number = 0;
 			let numImagesToProcess: number = files.length;
 
 			for (let i = 0; i < numImagesToProcess; i++) {
 				const file = files[i];
-				images.push(await this.uploadFile('productos/', file, productoid));
+				images.push(await this.uploadFile('productos/', file, idproducto));
 				processedImages += 1;
 			}
 
@@ -93,99 +75,51 @@ export class ProductosService {
 			}
 		});
 
-		return await arrFiles;
+		return arrFiles;
 	}
 
-	private async uploadFile(prefix: string, file, productoid: string): Promise<Images> {
-		const searchImageProducto = async string =>
-			await this.imagesModel.findOne({ filename: string });
+	private async uploadFile(prefix: string, file, productoid: number): Promise<Imagenes> {
+		const searchImageProducto = async filename =>
+			await this.imagenesRepository.findOne({ where: { filename } });
 		const filename = await editFileName(prefix, file, searchImageProducto);
 		await moveFile(file.filename, filename);
-		const imagen = await new this.imagesModel({
-			productoid,
-			filename,
-		}).save();
-		return imagen;
+		return this.imagenesRepository.save({ productoid, filename });
 	}
 
-	async editarProducto(productoId, producto: productoDto): Promise<Productos> {
-		producto.ruta = crearURLAmigable(producto.nombre);
-		producto.precio = convertToFloat(producto.precio);
-		const verificar = await this.productosModel.findOne({
-			_id: { $ne: hexTestMongoObjId(productoId) },
-			$or: [{ nombre: producto.nombre }, { ruta: producto.ruta }],
-			status: { $ne: 0 },
+	async editarProducto(idproducto: number, data: UpdateProductoDto) {
+		data.ruta = crearURLAmigable(data.nombre);
+		data.precio = convertToFloat(data.precio);
+		data.status = +data.status;
+		data.categoriaid = +data.categoriaid;
+		const verificar = await this.productoRepository.findOne({
+			where: {
+				status: Not(0),
+				idproducto: Not(idproducto),
+				nombre: data.nombre,
+				ruta: data.ruta,
+			},
 		});
 		if (verificar) throw new BadRequestException('Este nombre de producto ya existe');
-		await this.productosModel.updateOne({ _id: productoId }, producto);
-		return await this.findById(productoId);
+		await this.productoRepository.save({ idproducto, ...data });
+		return this.findById(idproducto);
 	}
 
-	async findByRuta(ruta: string): Promise<Productos> {
-		return await this.productosModel.findOne({ ruta, status: { $ne: 0 } });
+	async findByRuta(ruta: string) {
+		return this.productoRepository.findOne({ where: { ruta, status: Not(0) } });
 	}
 
-	async getImagesProducto(productoId: string): Promise<Images[]> {
-		return await this.imagesModel.find(
-			{ productoid: productoId },
-			{ productoid: 0, __v: 0 }
-		);
+	async getImagesProducto(productoid: number) {
+		return this.imagenesRepository.find({ where: { productoid } });
 	}
 
-	async deleteImagen(_id: string) {
-		const imagen: Images = await this.imagesModel.findOneAndDelete({ _id });
+	async deleteImagen(id: number) {
+		const imagen = await this.imagenesRepository.findOne({ where: { id } });
+		if (!imagen) return;
+		await this.imagenesRepository.delete({ id });
 		deleteFile(imagen.filename);
 	}
 
-	async deleteProducto(_id: string) {
-		await this.productosModel.updateOne({ _id }, { $set: { status: 0 } });
-	}
-
-	private setPrecioProductos(productos: Productos[]) {
-		return productos.map(p => this.setPrecioProducto(p));
-	}
-
-	private setPrecioProducto(producto: Productos): Productos {
-		producto.precio = parseFloat(producto.precio.toString());
-
-		return producto;
-	}
-
-	private unwindCategoria(): Array<any> {
-		return [
-			{
-				$lookup: {
-					from: 'categorias',
-					localField: 'categoriaid',
-					foreignField: '_id',
-					as: 'categoria',
-				},
-			},
-			{
-				$unwind: {
-					path: '$categorias',
-					preserveNullAndEmptyArrays: true,
-				},
-			},
-			{
-				$project: {
-					nombre: 1,
-					codigo: 1,
-					precio: 1,
-					descripcion: 1,
-					ruta: 1,
-					categoriaid: 1,
-					marca: 1,
-					codigoTarjeta: 1,
-					datecreated: {
-						$dateToString: {
-							format: '%d-%m-%Y',
-							date: '$datecreated',
-						},
-					},
-					nombrecategoria: '$categoria.nombre',
-				},
-			},
-		];
+	async deleteProducto(idproducto: number) {
+		await this.productoRepository.save({ idproducto, status: 0 });
 	}
 }

@@ -12,5 +12,5 @@ export class recoverPasswordDto extends PasswordDto {
 
 	@IsString()
 	@IsNotEmpty()
-	userId: string;
+	iduser: string;
 }

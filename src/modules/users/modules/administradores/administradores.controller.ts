@@ -9,11 +9,12 @@ import {
 	Put,
 } from '@nestjs/common';
 import { UsersService } from '../../users.service';
-import { GetCurrentUserId } from 'src/modules/auth/common/decorators';
+import { GetCurrentRolId } from 'src/modules/auth/common/decorators';
 import { UserDto } from '../../dto';
-import { User } from '../../user.interface';
+import { User } from '../../entities';
 import { AdministradoresService } from './administradores.service';
 import { PasswordDto, BidsUserDto } from '../../dto/';
+import { RADMIN, RUSER } from 'src/utils';
 @Controller('administradores')
 export class AdministradoresController {
 	constructor(
@@ -22,33 +23,30 @@ export class AdministradoresController {
 	) {}
 
 	@Get('getAdministradores')
-	async getAdministradores(@GetCurrentUserId() currentUserId: string): Promise<User[]> {
-		await this.usersService.verifyAdmin(currentUserId);
-		return await this.administradoresService.getUsuariosByRol(process.env.RADMIN);
+	getAdministradores(@GetCurrentRolId() currentUserRolId: number): Promise<User[]> {
+		this.usersService.verifyAdminByRolId(currentUserRolId);
+		return this.administradoresService.getUsuariosByRol(RADMIN);
 	}
 
 	@Get('getUsuarios')
-	async getUsuarios(@GetCurrentUserId() currentUserId: string): Promise<User[]> {
-		await this.usersService.verifyAdmin(currentUserId);
-		return await this.administradoresService.getUsuariosByRol(process.env.RUSUARIO);
+	getUsuarios(@GetCurrentRolId() currentUserRolId: number): Promise<User[]> {
+		this.usersService.verifyAdminByRolId(currentUserRolId);
+		return this.administradoresService.getUsuariosByRol(RUSER);
 	}
 
 	@Get('getUsuarioByRolAndId/:idUser/:rolid')
-	async getUsuarioByRolAndId(
+	getUsuarioByRolAndId(
 		@Param('idUser') idUser: string,
 		@Param('rolid') rolid: string,
-		@GetCurrentUserId() currentUserId: string
-	): Promise<User> {
-		await this.usersService.verifyAdmin(currentUserId);
-		return await this.administradoresService.getUsuarioByRolAndId(idUser, rolid);
+		@GetCurrentRolId() currentUserRolId: number
+	) {
+		this.usersService.verifyAdminByRolId(+currentUserRolId);
+		return this.administradoresService.getUsuarioByRolAndId(+idUser, +rolid);
 	}
 
 	@Post('/')
-	async crearUsuario(
-		@Body() user: UserDto,
-		@GetCurrentUserId() currentUserId: string
-	): Promise<{ msg: string; user: User }> {
-		await this.usersService.verifyAdmin(currentUserId);
+	async crearUsuario(@Body() user: UserDto, @GetCurrentRolId() currentUserRolId: number) {
+		this.usersService.verifyAdminByRolId(currentUserRolId);
 		const userCreated = await this.usersService.createUser(user);
 		return { msg: 'Usuario creado correctamente.', user: userCreated };
 	}
@@ -57,10 +55,10 @@ export class AdministradoresController {
 	async putUsuario(
 		@Body() user: UserDto,
 		@Param('userId') userId: string,
-		@GetCurrentUserId() currentUserId: string
-	): Promise<{ msg: string; user: User }> {
-		await this.usersService.verifyAdmin(currentUserId);
-		const updatedUser = await this.usersService.updateUser(userId, user);
+		@GetCurrentRolId() currentUserRolId: number
+	) {
+		this.usersService.verifyAdminByRolId(currentUserRolId);
+		const updatedUser = await this.usersService.updateUser(+userId, user);
 		return { msg: 'Usuario actualizado correctamente.', user: updatedUser };
 	}
 
@@ -68,13 +66,13 @@ export class AdministradoresController {
 	async changePasswordUser(
 		@Body() { password, passwordConfirm }: PasswordDto,
 		@Param('userId') userId: string,
-		@GetCurrentUserId() currentUserId: string
-	): Promise<Object> {
-		await this.usersService.verifyAdmin(currentUserId);
+		@GetCurrentRolId() currentUserRolId: number
+	) {
+		this.usersService.verifyAdminByRolId(+currentUserRolId);
 		if (password.trim() !== passwordConfirm.trim())
 			throw new BadRequestException('Las contraseñas no coinciden');
 
-		await this.usersService.updatePassword(userId, password);
+		await this.usersService.updatePassword(+userId, password);
 		return {
 			msg: 'Contraseña actualizada correctamente.',
 		};
@@ -82,23 +80,17 @@ export class AdministradoresController {
 
 	@Put('add-remove-bids')
 	async addRemoveBids(
-		@Body() { bids, _id: userId, statusAddRemoveBids }: BidsUserDto,
-		@GetCurrentUserId() currentUserId: string
-	): Promise<Object> {
-		await this.usersService.verifyAdmin(currentUserId);
+		@Body() data: BidsUserDto,
+		@GetCurrentRolId() currentUserRolId: number
+	) {
+		this.usersService.verifyAdminByRolId(+currentUserRolId);
 		let newBids;
-		if (statusAddRemoveBids === 'add') {
-			newBids = await this.administradoresService.addBidsUser({
-				_id: userId,
-				bids,
-			});
+		if (data.statusAddRemoveBids === 'add') {
+			newBids = await this.administradoresService.addBidsUser(data);
 		}
 
-		if (statusAddRemoveBids === 'remove') {
-			newBids = await this.administradoresService.removeBidsUser({
-				_id: userId,
-				bids,
-			});
+		if (data.statusAddRemoveBids === 'remove') {
+			newBids = await this.administradoresService.removeBidsUser(data);
 		}
 
 		return {
@@ -107,13 +99,13 @@ export class AdministradoresController {
 		};
 	}
 
-	@Delete('/:idUsuarioDelete')
+	@Delete('/:iduser')
 	async deleteUsuario(
-		@Param('idUsuarioDelete') idUsuarioDelete: string,
-		@GetCurrentUserId() currentUserId: string
-	): Promise<Object> {
-		await this.usersService.verifyAdmin(currentUserId);
-		await this.usersService.eliminarUsuario(idUsuarioDelete);
+		@Param('iduser') iduser: string,
+		@GetCurrentRolId() currentUserRolId: number
+	) {
+		this.usersService.verifyAdminByRolId(+currentUserRolId);
+		await this.usersService.eliminarUsuario(+iduser);
 		return { msg: 'Usuario eliminado correctamente.' };
 	}
 }

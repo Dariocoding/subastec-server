@@ -1,6 +1,7 @@
 import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
 
 export class UserDto {
+	iduser?: number;
 	username?: string;
 
 	@IsNotEmpty()
@@ -16,11 +17,13 @@ export class UserDto {
 
 	password?: string;
 
-	rolid?: string;
+	rolid?: number;
 
 	facebookID?: string;
 
 	googleID?: string;
 
-	fotoperfil?: string;
+	image_profile?: string;
+
+	useridReferenced?: number;
 }

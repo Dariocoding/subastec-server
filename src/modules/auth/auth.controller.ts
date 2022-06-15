@@ -12,14 +12,12 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UserDto } from '../users/dto';
-import { Tokens } from './types/tokens.type';
 import { AuthDto, FacebookAuthDto, GoogleAuthDto } from './dto';
 import { AtGuard, RtGuard } from './common/guards';
 import { GetCurrentUser, GetCurrentUserId, Public } from './common/decorators';
-import { ApiBody, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { UsersService } from '../users/users.service';
+import { RUSER } from 'src/utils';
 
-@ApiTags('auth')
 @Controller('auth')
 export class AuthController {
 	constructor(private authService: AuthService, private usersService: UsersService) {}
@@ -27,93 +25,99 @@ export class AuthController {
 	@Public()
 	@Post('local/signup')
 	@HttpCode(HttpStatus.CREATED)
-	@ApiBody({ type: UserDto })
-	async signupLocal(@Body() dto: UserDto): Promise<Tokens> {
-		dto.rolid = process.env.RUSUARIO;
-		return await this.authService.signupLocal(dto);
+	signupLocal(@Body() dto: UserDto) {
+		dto.rolid = RUSER;
+		return this.authService.signupLocal({ dto, isInvitation: false });
+	}
+
+	@Public()
+	@Post('local/singup/invitado')
+	@HttpCode(HttpStatus.CREATED)
+	signUpInvitado(@Body() dto: UserDto) {
+		dto.rolid = RUSER;
+		return this.authService.signupLocal({ dto, isInvitation: true });
 	}
 
 	@Public()
 	@Post('local/signin')
 	@HttpCode(HttpStatus.OK)
-	async signInLocal(@Body() dto: AuthDto): Promise<Tokens> {
+	signInLocal(@Body() dto: AuthDto) {
 		return this.authService.signInLocal(dto);
 	}
 
 	@Public()
 	@Post('google/signin')
 	@HttpCode(HttpStatus.OK)
-	async googleSignIn(@Body() GoogleAuthDto: GoogleAuthDto): Promise<Tokens> {
+	googleSignIn(@Body() GoogleAuthDto: GoogleAuthDto) {
 		return this.authService.signInGoogle(GoogleAuthDto);
 	}
 
 	@Public()
 	@Post('facebook/signin')
 	@HttpCode(HttpStatus.OK)
-	async facebookSignIn(@Body() FacebookAuthDto: FacebookAuthDto): Promise<Tokens> {
+	facebookSignIn(@Body() FacebookAuthDto: FacebookAuthDto) {
 		return this.authService.signInFacebook(FacebookAuthDto);
 	}
 
 	@Delete('google/desvincular')
 	@HttpCode(HttpStatus.OK)
-	async googleDesvincular(@GetCurrentUserId() userId: string): Promise<{ msg: string }> {
-		await this.usersService.updateGoogleID(userId, null);
+	async googleDesvincular(@GetCurrentUserId() iduser: string) {
+		await this.usersService.updateGoogleID(+iduser, null);
 		return { msg: 'Has desvinculado exitosamente a Google en tu cuenta.' };
 	}
 
 	@Delete('facebook/desvincular')
 	@HttpCode(HttpStatus.OK)
-	async facebookDesvincular(@GetCurrentUserId() userId: string): Promise<{ msg: string }> {
-		await this.usersService.updateFacebookID(userId, null);
+	async facebookDesvincular(@GetCurrentUserId() iduser: string) {
+		await this.usersService.updateFacebookID(+iduser, null);
 		return { msg: 'Has desvinculado exitosamente a Facebook en tu cuenta.' };
 	}
 
 	@Put('google/vincular')
 	@HttpCode(HttpStatus.OK)
 	async googleVincular(
-		@GetCurrentUserId() userId: string,
+		@GetCurrentUserId() iduser: string,
 		@Body() GoogleAuthDto: GoogleAuthDto
-	): Promise<{ msg: string }> {
+	) {
 		const user = await this.usersService.findByGoogleID(GoogleAuthDto.googleId);
 		if (user)
 			throw new BadRequestException(
 				'Ya hay una cuenta vinculada con este Google'
 			);
-		await this.usersService.updateGoogleID(userId, GoogleAuthDto.googleId);
+		await this.usersService.updateGoogleID(+iduser, GoogleAuthDto.googleId);
 		return { msg: 'Has vinculado exitosamente a Google en tu cuenta.' };
 	}
 
 	@Put('facebook/vincular')
 	@HttpCode(HttpStatus.OK)
 	async facebookVincular(
-		@GetCurrentUserId() userId: string,
+		@GetCurrentUserId() iduser: string,
 		@Body() FacebookAuthDto: FacebookAuthDto
-	): Promise<{ msg: string }> {
+	) {
 		const user = await this.usersService.findByFacebookID(FacebookAuthDto.userID);
 		if (user)
 			throw new BadRequestException(
 				'Ya hay una cuenta vinculada con este Facebook'
 			);
-		await this.usersService.updateFacebookID(userId, FacebookAuthDto.userID);
+		await this.usersService.updateFacebookID(+iduser, FacebookAuthDto.userID);
 		return { msg: 'Has vinculado exitosamente a Facebook en tu cuenta.' };
 	}
 
 	@UseGuards(AtGuard)
 	@Post('logout')
 	@HttpCode(HttpStatus.OK)
-	async logout(@GetCurrentUserId() userId: string) {
-		return this.authService.logout(userId);
+	async logout(@GetCurrentUserId() iduser: string) {
+		return this.authService.logout(+iduser);
 	}
 
 	@Public()
-	@ApiBearerAuth()
 	@UseGuards(RtGuard)
 	@Get('refresh')
 	@HttpCode(HttpStatus.OK)
 	async refreshToken(
-		@GetCurrentUserId() userId: string,
+		@GetCurrentUserId() iduser: number,
 		@GetCurrentUser('refreshToken') refreshToken: string
 	) {
-		return await this.authService.refreshToken(userId, refreshToken);
+		return await this.authService.refreshToken(+iduser, refreshToken);
 	}
 }

@@ -1,12 +1,14 @@
-import { forwardRef, Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from '../../entities';
 import { AdministradoresController } from './administradores.controller';
-import { UsersModule } from '../../users.module';
 import { AdministradoresService } from './administradores.service';
-import { MongooseModulesUser } from '../../schemas';
 
+@Global()
 @Module({
-  imports: [forwardRef(() => UsersModule), MongooseModulesUser],
-  controllers: [AdministradoresController],
-  providers: [AdministradoresService],
+	imports: [TypeOrmModule.forFeature([User])],
+	controllers: [AdministradoresController],
+	providers: [AdministradoresService],
+	exports: [AdministradoresService],
 })
 export class AdministradoresModule {}

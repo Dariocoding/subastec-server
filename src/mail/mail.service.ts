@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
-import { Contactos } from 'src/modules/settings/contactos/interfaces';
-import { User } from 'src/modules/users/user.interface';
+import { Contacto } from 'src/modules/settings/contactos/entities';
+import { User } from 'src/modules/users/entities';
 import { SettingsService } from 'src/modules/settings/settings/settings.service';
 import { ForgetPassword } from './interfaces';
 
@@ -12,7 +12,7 @@ export class MailService {
 		private settingsService: SettingsService
 	) {}
 
-	async sendMensajeContacto(contacto: Contactos) {
+	async sendMensajeContacto(contacto: Contacto) {
 		const config = await this.settingsService.getConfiguracion();
 
 		await this.mailerService.sendMail({

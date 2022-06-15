@@ -3,22 +3,26 @@ import { UsersService } from '../users/users.service';
 import { UserDto } from '../users/dto';
 import * as bcrypt from 'bcrypt';
 import { Tokens } from './types/tokens.type';
+//@ts-ignore
 import { JwtService } from '@nestjs/jwt';
 import { AuthDto, FacebookAuthDto, GoogleAuthDto } from './dto';
-import { User } from '../users/user.interface';
+import { User } from '../users/entities';
+import { RUSER } from 'src/utils';
 
 @Injectable()
 export class AuthService {
 	constructor(private userService: UsersService, private jwtService: JwtService) {}
 
-	async signupLocal(dto: UserDto): Promise<Tokens> {
-		const user = await this.userService.createUser(dto);
-		const tokens = await this.getTokens(user._id);
-		await this.updateRtHash(user._id, tokens.refresh_token);
+	async signupLocal(data: { dto: UserDto; isInvitation: boolean }) {
+		const user = data.isInvitation
+			? await this.userService.createUserByInvitacion(data.dto)
+			: await this.userService.createUser(data.dto);
+		const tokens = await this.getTokens(user);
+		await this.updateRtHash(user.iduser, tokens.refresh_token);
 		return tokens;
 	}
 
-	async signInLocal(dto: AuthDto): Promise<Tokens> {
+	async signInLocal(dto: AuthDto) {
 		let user: User;
 		user = await this.userService.findByEmail(dto.username);
 		if (!user) {
@@ -28,36 +32,36 @@ export class AuthService {
 		const passwordMatches = await bcrypt.compare(dto.password, user.password);
 		if (!passwordMatches) throw new ForbiddenException('Contraseña incorrecta');
 
-		const tokens = await this.getTokens(user._id);
-		await this.updateRtHash(user._id, tokens.refresh_token);
+		const tokens = await this.getTokens(user);
+		await this.updateRtHash(user.iduser, tokens.refresh_token);
 		return {
 			...tokens,
 			user: {
 				nombres: user.nombres,
 				apellidos: user.apellidos,
 				email_user: user.email_user,
-				fotoperfil: user.fotoperfil,
+				image_profile: user.image_profile,
 			},
 		};
 	}
 
-	async signInGoogle(GoogleAuthDto: GoogleAuthDto): Promise<Tokens> {
+	async signInGoogle(GoogleAuthDto: GoogleAuthDto) {
 		const googleID = GoogleAuthDto.googleId;
 		const googleMail = GoogleAuthDto.email;
 		const nombres = GoogleAuthDto.givenName;
 		const apellidos = GoogleAuthDto.familyName;
-		const fotoperfil = GoogleAuthDto.imageUrl;
+		const image_profile = GoogleAuthDto.imageUrl;
 		let user = await this.userService.findByGoogleID(googleID);
 		if (user) {
-			const tokens = await this.getTokens(user._id);
-			await this.updateRtHash(user._id, tokens.refresh_token);
+			const tokens = await this.getTokens(user);
+			await this.updateRtHash(user.iduser, tokens.refresh_token);
 			return tokens;
 		}
 		user = await this.userService.findByEmail(googleMail);
 		if (user) {
-			const tokens = await this.getTokens(user._id);
-			await this.updateRtHash(user._id, tokens.refresh_token);
-			await this.userService.updateGoogleID(user._id, googleID);
+			const tokens = await this.getTokens(user);
+			await this.updateRtHash(user.iduser, tokens.refresh_token);
+			await this.userService.updateGoogleID(user.iduser, googleID);
 			return tokens;
 		}
 
@@ -66,63 +70,62 @@ export class AuthService {
 			apellidos,
 			email_user: googleMail,
 			googleID,
-			fotoperfil,
-			rolid: process.env.RUSUARIO,
+			image_profile,
+			rolid: RUSER,
 		});
 
-		const tokens = await this.getTokens(user._id);
-		await this.updateRtHash(user._id, tokens.refresh_token);
+		const tokens = await this.getTokens(user);
+		await this.updateRtHash(user.iduser, tokens.refresh_token);
 		return tokens;
 	}
 
-	async signInFacebook(FacebookAuthDto: FacebookAuthDto): Promise<Tokens> {
+	async signInFacebook(FacebookAuthDto: FacebookAuthDto) {
 		const nombres = FacebookAuthDto.name;
 		const facebookID = FacebookAuthDto.userID;
 		let user = await this.userService.findByFacebookID(facebookID);
 		if (user) {
-			const tokens = await this.getTokens(user._id);
-			await this.updateRtHash(user._id, tokens.refresh_token);
+			const tokens = await this.getTokens(user);
+			await this.updateRtHash(user.iduser, tokens.refresh_token);
 			return tokens;
 		}
 		user = await this.userService.createUser({
 			nombres,
 			facebookID,
-			rolid: process.env.RUSUARIO,
+			rolid: RUSER,
 		});
-		const tokens = await this.getTokens(user._id);
-		await this.updateRtHash(user._id, tokens.refresh_token);
+		const tokens = await this.getTokens(user);
+		await this.updateRtHash(user.iduser, tokens.refresh_token);
 		return tokens;
 	}
 
-	async logout(userId: string) {
+	async logout(userId: number) {
 		await this.userService.updateRtHash(userId, null);
 	}
 
-	async refreshToken(userId: string, rt: string) {
-		const user = await this.userService.findById(userId, {
-			hashedRt: 1,
-		});
+	async refreshToken(iduser: number, rt: string) {
+		const user = await this.userService.findById(iduser);
 
 		if (!user || !user.hashedRt) throw new ForbiddenException('Usuario no encontrado');
 		const rtMatches = await bcrypt.compare(rt, user.hashedRt);
 		if (!rtMatches) throw new ForbiddenException('Access Denied');
-		const tokens = await this.getTokens(user._id);
+		const tokens = await this.getTokens(user);
 		delete user.hashedRt;
-		await this.updateRtHash(user._id, tokens.refresh_token);
+		await this.updateRtHash(user.iduser, tokens.refresh_token);
 		return { ...tokens, user };
 	}
 
-	async getTokens(userId: string): Promise<Tokens> {
+	async getTokens(user: User) {
+		console.log(user);
 		const [at, rt] = await Promise.all([
 			this.jwtService.signAsync(
-				{ userId },
+				{ iduser: user.iduser, rolid: user.rolid },
 				{
-					expiresIn: '1d',
+					expiresIn: '1h',
 					secret: process.env.ACCESS_TOKEN_SECRET,
 				}
 			),
 			this.jwtService.signAsync(
-				{ userId },
+				{ iduser: user.iduser, rolid: user.rolid },
 				{
 					expiresIn: '7d',
 					secret: process.env.REFRESH_TOKEN_SECRET,
@@ -133,8 +136,8 @@ export class AuthService {
 		return { access_token: at, refresh_token: rt };
 	}
 
-	async updateRtHash(userId: string, rt: string) {
+	async updateRtHash(iduser: number, rt: string) {
 		const hash = await this.userService.hashData(rt);
-		await this.userService.updateRtHash(userId, hash);
+		await this.userService.updateRtHash(iduser, hash);
 	}
 }

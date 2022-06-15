@@ -1,141 +1,145 @@
 import { Injectable } from '@nestjs/common';
-import { Model } from 'mongoose';
-import { Categorias } from './interfaces';
-import { CreateCategoriaDto } from './dto';
-import { crearURLAmigable, editFileName, hexTestMongoObjId, moveFile } from '../../helpers';
-import { NotFoundException } from '@nestjs/common';
-import { deleteFile } from '../../helpers';
-import { InjectModel } from '@nestjs/mongoose';
+import { Categoria } from './entities';
+import { CreateCategoriaDto, UpdateCategoriaDto } from './dto';
+import { crearURLAmigable, editFileName, moveFile, deleteFile, shuffledArr } from '../../utils';
 import { BadRequestException } from '@nestjs/common';
 import { ProductosService } from '../productos/productos.service';
 import { SettingsService } from '../settings/settings/settings.service';
-import { shuffleArr } from 'src/helpers/helpersArrays';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Not, Repository } from 'typeorm';
 @Injectable()
 export class CategoriasService {
 	constructor(
-		@InjectModel('Categorias') private categoriasModel: Model<Categorias>,
+		@InjectRepository(Categoria)
+		private categoriaRepository: Repository<Categoria>,
 		private productosService: ProductosService,
 		private settingsService: SettingsService
 	) {}
 
-	async find(): Promise<Categorias[]> {
-		const configuracion = await this.settingsService.getConfiguracion();
-		const OrdenCategoria = configuracion.orden_categoria;
-		let ctgrias;
-		if (OrdenCategoria === 'ASC' || OrdenCategoria === 'DESC') {
-			ctgrias = await this.categoriasModel
-				.find({ status: { $ne: 0 } })
-				.sort({ _id: OrdenCategoria === 'ASC' ? 1 : -1 });
-		} else if (OrdenCategoria === 'ALPHABET') {
-			ctgrias = await this.categoriasModel
-				.find({ status: { $ne: 0 } })
-				.sort({ nombre: 1 })
-				.collation({ locale: 'es', caseLevel: true });
-		} else if (OrdenCategoria === 'RAND') {
-			ctgrias = shuffleArr(
-				await this.categoriasModel.find({ status: { $ne: 0 } })
-			);
-		}
-
-		const newCategorias = await this.setTotalProductosCategorias(ctgrias);
-
-		return newCategorias;
-	}
-
-	private async setTotalProductosCategorias(ctgrias: Categorias[]): Promise<Categorias[]> {
-		let arr = [];
-		for (let i = 0; i < ctgrias.length; i++) {
-			arr[i] = ctgrias[i].toJSON();
-			arr[i].totalproductos = await this.productosService.countByCategoria(
-				ctgrias[i]._id
-			);
-		}
-		return arr;
-	}
-
-	async findById(categoriaId: string): Promise<Categorias> {
-		const categoria = await this.categoriasModel.findOne({
-			_id: categoriaId,
-			status: { $ne: 0 },
+	async find() {
+		const ctgrias = await this.categoriaRepository.find({
+			where: { status: Not(0) },
+			order: { idcategoria: 'DESC' },
 		});
-		if (!categoria) throw new NotFoundException('Categoria no encontrada');
-		return categoria;
+		await this.setTotalProductosCategorias(ctgrias);
+		return ctgrias;
 	}
 
-	async findByRuta(ruta: string): Promise<Categorias> {
-		return await this.categoriasModel.findOne({ ruta, status: { $ne: 0 } });
+	async selectCategorias() {
+		const configuracion = await this.settingsService.getConfiguracion();
+		const { orden_categoria } = configuracion;
+
+		let ctgrias: Categoria[];
+
+		if (orden_categoria === 'ASC' || orden_categoria === 'DESC') {
+			ctgrias = await this.categoriaRepository.find({
+				where: { status: Not(0) },
+				select: ['nombre', 'idcategoria', 'status'],
+				order: { idcategoria: orden_categoria },
+			});
+		} else if (orden_categoria === 'alphabet') {
+			ctgrias = await this.categoriaRepository.find({
+				where: { status: Not(0) },
+				select: ['nombre', 'idcategoria', 'status'],
+				order: { nombre: 'ASC' },
+			});
+		} else if (orden_categoria === 'RAND') {
+			ctgrias = await this.categoriaRepository.find({
+				where: { status: Not(0) },
+				select: ['nombre', 'idcategoria', 'status'],
+			});
+			ctgrias = shuffledArr(ctgrias);
+		}
+
+		ctgrias = [...ctgrias, { nombre: 'Paquete de Bids', idcategoria: -1, status: 1 }];
+
+		return ctgrias;
 	}
 
-	async revisarYEliminarPortada(categoraId: string) {
-		const categoria = await this.findById(categoraId);
-		if (categoria.portada && categoria.portada !== '') deleteFile(categoria.portada);
+	async setTotalProductosCategorias(ctgrias: Categoria[]) {
+		for (let i = 0; i < ctgrias.length; i++) {
+			const { idcategoria } = ctgrias[i];
+			ctgrias[i].totalproductos = await this.productosService.countByCategoria(
+				idcategoria
+			);
+		}
 	}
 
-	async createCategoria(categoria: CreateCategoriaDto, file): Promise<Categorias> {
-		categoria.ruta = crearURLAmigable(categoria.nombre);
-		const categoriaEncontrada = await this.categoriasModel.findOne({
-			nombre: categoria.nombre,
-			ruta: categoria.ruta,
-			status: { $ne: 0 },
+	findById(idcategoria: number) {
+		return this.categoriaRepository.findOne({ where: { idcategoria, status: Not(0) } });
+	}
+
+	findByRuta(ruta: string) {
+		return this.categoriaRepository.findOne({ where: { ruta, status: Not(0) } });
+	}
+
+	async revisarYEliminarPortada(idcategoria: number) {
+		const categoria = await this.findById(idcategoria);
+		if (categoria.portada) deleteFile(categoria.portada);
+	}
+
+	async createCategoria(data: CreateCategoriaDto, file: Express.Multer.File) {
+		data.ruta = crearURLAmigable(data.nombre);
+		data.status = +data.status;
+		const categoriaEncontrada = await this.categoriaRepository.findOne({
+			where: { nombre: data.nombre, ruta: data.ruta, status: Not(0) },
 		});
 		if (categoriaEncontrada)
 			throw new BadRequestException('Este nombre de categoria o ruta ya existe');
-		const newCategoria = new this.categoriasModel(categoria);
-		await newCategoria.save();
-		await this.insertPortadaCategoria(newCategoria._id, file);
-		return await this.findById(newCategoria._id);
+		const categoria = await this.categoriaRepository.save(data);
+		return this.insertPortadaCategoria(categoria.idcategoria, file);
 	}
 
-	private async insertPortadaCategoria(_id: string, file) {
+	private async insertPortadaCategoria(idcategoria: number, file: Express.Multer.File) {
 		if (file) {
-			const fntSearchPortada = async string =>
-				await this.categoriasModel.findOne({ portada: string });
+			const fntSearchPortada = async portada =>
+				await this.categoriaRepository.findOne({ where: { portada } });
 			const portada = await editFileName('categorias/', file, fntSearchPortada);
-			await this.categoriasModel.updateOne({ _id }, { $set: { portada } });
 			await moveFile(file.filename, portada);
+			await this.categoriaRepository.update({ idcategoria }, { portada });
+			return this.findById(idcategoria);
 		}
 	}
 
 	async updateCategoria(
-		categoriaId: string,
-		categoria: CreateCategoriaDto,
-		file
-	): Promise<Categorias> {
-		const verificar = await this.categoriasModel.findOne({
-			_id: { $ne: hexTestMongoObjId(categoriaId) },
-			$or: [{ nombre: categoria.nombre }, { ruta: categoria.ruta }],
-			status: { $ne: 0 },
+		idcategoria: number,
+		data: UpdateCategoriaDto,
+		file: Express.Multer.File
+	) {
+		data.ruta = crearURLAmigable(data.nombre);
+		data.status = +data.status;
+		const is = await this.categoriaRepository.findOne({
+			where: {
+				idcategoria: Not(idcategoria),
+				status: Not(0),
+				nombre: data.nombre,
+				ruta: data.ruta,
+			},
 		});
-		if (verificar) throw new BadRequestException('Este nombre de categoria ya existe');
-		categoria.ruta = crearURLAmigable(categoria.nombre);
-		const borrarImagen = categoria.borrarImagen === 'true';
-		if (borrarImagen && !file) categoria.portada = '';
-		const reqCategoria = await this.categoriasModel.findById(categoriaId, {
-			portada: 1,
+		if (is) throw new BadRequestException('Este nombre de categoria ya existe');
+		const borrarImagen = data.borrarImagen === 'true';
+		if (borrarImagen && !file) data.portada = '';
+		const reqCategoria = await this.categoriaRepository.findOne({
+			where: { idcategoria },
 		});
-		const primeraValidacion =
-			reqCategoria.portada && reqCategoria.portada !== '' && file;
-		const segundaValidacion =
-			reqCategoria.portada && reqCategoria.portada !== '' && borrarImagen;
+		const primeraValidacion = reqCategoria.portada && file;
+		const segundaValidacion = reqCategoria.portada && borrarImagen;
 
 		if (primeraValidacion || segundaValidacion) deleteFile(reqCategoria.portada);
 
-		await this.insertPortadaCategoria(categoriaId, file);
-		return await this.categoriasModel.findByIdAndUpdate(categoriaId, categoria, {
-			new: true,
-		});
+		await this.insertPortadaCategoria(idcategoria, file);
+		delete data.borrarImagen;
+		await this.categoriaRepository.save({ idcategoria, ...data });
+		return this.findById(idcategoria);
 	}
 
-	async eliminarCategoria(categoriaId: string) {
-		const productos = await this.productosService.findByCategoria(categoriaId);
+	async eliminarCategoria(idcategoria: number) {
+		const productos = await this.productosService.findByCategoria(idcategoria);
 
 		if (productos.length)
 			throw new BadRequestException(
 				'No se pueden eliminar productos con categorias relacionadas'
 			);
-		return await this.categoriasModel.updateOne(
-			{ _id: categoriaId },
-			{ $set: { status: 0 } }
-		);
+		await this.categoriaRepository.update({ idcategoria }, { status: 0 });
 	}
 }

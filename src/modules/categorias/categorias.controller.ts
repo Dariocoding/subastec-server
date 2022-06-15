@@ -1,5 +1,4 @@
 import {
-	BadRequestException,
 	Body,
 	Controller,
 	Delete,
@@ -10,13 +9,13 @@ import {
 	UploadedFile,
 	UseInterceptors,
 } from '@nestjs/common';
-import { GetCurrentUserId, Public } from '../auth/common/decorators';
+import { GetCurrentRolId, Public } from '../auth/common/decorators';
 import { UsersService } from '../users/users.service';
 import { CategoriasService } from './categorias.service';
-import { Categorias } from './interfaces';
-import { CreateCategoriaDto } from './dto';
+import { Categoria } from './entities';
+import { CreateCategoriaDto, UpdateCategoriaDto } from './dto';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { imageFileFilter, storageImage } from 'src/helpers';
+import { imageFileFilter, storageImage } from 'src/utils';
 
 @Controller('categorias')
 export class CategoriasController {
@@ -25,23 +24,28 @@ export class CategoriasController {
 		private categoriasService: CategoriasService
 	) {}
 
-	@Public()
 	@Get()
-	async getCategorias(): Promise<Categorias[]> {
-		return await this.categoriasService.find();
+	getCategorias() {
+		return this.categoriasService.find();
+	}
+
+	@Get('selectCategorias')
+	@Public()
+	selectCategorias() {
+		return this.categoriasService.selectCategorias();
 	}
 
 	@Public()
 	@Get('/getCategoriaById/:categoriaId')
-	async getCategoriaById(@Param('categoriaId') categoriaId: string): Promise<Categorias> {
-		return await this.categoriasService.findById(categoriaId);
+	getCategoriaById(@Param('categoriaId') categoriaId: string) {
+		return this.categoriasService.findById(+categoriaId);
 	}
 
 	@Public()
 	@Get('/getCategoriaByRuta/:rutaCategoria')
 	async getCategoriaByRuta(
 		@Param('rutaCategoria') rutaCategoria: string
-	): Promise<Categorias> {
+	): Promise<Categoria> {
 		return await this.categoriasService.findByRuta(rutaCategoria);
 	}
 
@@ -54,10 +58,10 @@ export class CategoriasController {
 	)
 	async crearCategoria(
 		@UploadedFile() file,
-		@GetCurrentUserId() currentUserId: string,
+		@GetCurrentRolId() currentUserRolId: number,
 		@Body() categoria: CreateCategoriaDto
-	): Promise<{ msg: string; categoria: Categorias }> {
-		await this.usersService.verifyAdmin(currentUserId);
+	) {
+		this.usersService.verifyAdminByRolId(currentUserRolId);
 		const newCategoria = await this.categoriasService.createCategoria(categoria, file);
 		return { msg: 'Categoria creada correctamente', categoria: newCategoria };
 	}
@@ -70,14 +74,14 @@ export class CategoriasController {
 		})
 	)
 	async editarCategoria(
-		@GetCurrentUserId() currentUserId: string,
-		@Param('categoriaId') categoriaId: string,
-		@Body() categoria: CreateCategoriaDto,
+		@GetCurrentRolId() currentUserRolId: number,
+		@Param('categoriaId') idcategoria: string,
+		@Body() categoria: UpdateCategoriaDto,
 		@UploadedFile() file
-	): Promise<{ msg: string; categoria: Categorias }> {
-		await this.usersService.verifyAdmin(currentUserId);
+	) {
+		this.usersService.verifyAdminByRolId(currentUserRolId);
 		const updatedCategoria = await this.categoriasService.updateCategoria(
-			categoriaId,
+			+idcategoria,
 			categoria,
 			file
 		);
@@ -87,10 +91,10 @@ export class CategoriasController {
 	@Delete(':categoriaId')
 	async eliminarCategoria(
 		@Param('categoriaId') categoriaId: string,
-		@GetCurrentUserId() currentUserId: string
-	): Promise<object> {
-		await this.usersService.verifyAdmin(currentUserId);
-		await this.categoriasService.eliminarCategoria(categoriaId);
+		@GetCurrentRolId() currentUserRolId: number
+	) {
+		this.usersService.verifyAdminByRolId(currentUserRolId);
+		await this.categoriasService.eliminarCategoria(+categoriaId);
 		return { msg: 'Categoria eliminada correctamente.' };
 	}
 }

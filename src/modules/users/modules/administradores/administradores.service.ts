@@ -1,55 +1,44 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
-import { User } from '../../user.interface';
-import { Model } from 'mongoose';
-import { hexTestMongoObjId } from 'src/helpers';
+import { Injectable } from '@nestjs/common';
+import { User } from '../../entities';
 import { UsersService } from '../../users.service';
 import { BidsUserDto } from '../../dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Not, Repository } from 'typeorm';
 @Injectable()
 export class AdministradoresService {
 	constructor(
-		@InjectModel('User') private userModel: Model<User>,
+		@InjectRepository(User) private userRepository: Repository<User>,
 		private usersService: UsersService
 	) {}
 
-	async getUsuariosByRol(rolid: string): Promise<User[]> {
-		return await this.userModel
-			.aggregate([
-				{ $match: { rolid: hexTestMongoObjId(rolid), status: { $ne: 0 } } },
-				...this.usersService.getUnwindRol(),
-			])
-			.sort({ _id: -1 });
+	getUsuariosByRol(rolid: number) {
+		return this.userRepository.find({
+			where: { status: Not(0), rolid },
+			order: { iduser: 'DESC' },
+			relations: ['rol'],
+		});
 	}
 
-	async getUsuarioByRolAndId(userId: string, rolid: string) {
-		const usuario = await this.userModel.aggregate([
-			{
-				$match: {
-					_id: hexTestMongoObjId(userId),
-					rolid: hexTestMongoObjId(rolid),
-					status: { $ne: 0 },
-				},
-			},
-			...this.usersService.getUnwindRol(),
-			{ $limit: 1 },
-		]);
-		if (!usuario.length) throw new NotFoundException('Este usuario no existe');
-		return usuario[0];
+	getUsuarioByRolAndId(iduser: number, rolid: number) {
+		return this.userRepository.findOne({
+			where: { iduser, rolid, status: Not(0) },
+			relations: ['rol'],
+		});
 	}
 
-	async removeBidsUser({ _id: userId, bids }: BidsUserDto): Promise<number> {
-		const user = await this.usersService.findById(userId);
+	async removeBidsUser({ iduser, bids }: BidsUserDto) {
+		const user = await this.usersService.findById(+iduser);
 		let newBids: number;
 		const operacion = user.bids - bids;
 		operacion <= 0 ? (newBids = 0) : (newBids = operacion);
-		await this.usersService.updateBidsUser(userId, newBids);
+		await this.usersService.updateBidsUser(+iduser, newBids);
 		return newBids;
 	}
 
-	async addBidsUser({ _id: userId, bids }: BidsUserDto): Promise<number> {
-		const user = await this.usersService.findById(userId);
+	async addBidsUser({ iduser, bids }: BidsUserDto) {
+		const user = await this.usersService.findById(+iduser);
 		const newBids = user.bids + bids;
-		await this.usersService.updateBidsUser(userId, newBids);
+		await this.usersService.updateBidsUser(+iduser, newBids);
 		return newBids;
 	}
 }

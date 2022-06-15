@@ -1,20 +1,18 @@
 import { Injectable } from '@nestjs/common';
-import { Model } from 'mongoose';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { SettingsDto } from './dto';
-import { InjectModel } from '@nestjs/mongoose';
-import { Settings } from './interfaces';
+import { Settings } from './entities';
 
 @Injectable()
 export class SettingsService {
-	constructor(@InjectModel('Settings') private settingsModel: Model<Settings>) {}
+	constructor(@InjectRepository(Settings) private settingsRepository: Repository<Settings>) {}
 
-	async getConfiguracion(): Promise<Settings> {
-		const settings = await this.settingsModel.find();
-		return settings[0];
+	getConfiguracion() {
+		return this.settingsRepository.findOne({ where: { id: 1 } });
 	}
 
-	async setConfiguracion(settings: SettingsDto): Promise<void> {
-		const settingsActual = await this.getConfiguracion();
-		await this.settingsModel.updateOne({ _id: settingsActual._id }, settings);
+	async setConfiguracion(data: SettingsDto) {
+		await this.settingsRepository.update({ id: 1 }, data);
 	}
 }

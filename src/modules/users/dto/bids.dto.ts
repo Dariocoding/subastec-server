@@ -1,5 +1,5 @@
 export class BidsUserDto {
 	bids: number;
-	_id: string;
+	iduser: number;
 	statusAddRemoveBids?: 'add' | 'remove';
 }

@@ -1,16 +1,12 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Imagenes, Producto } from './entities';
 import { ProductosController } from './productos.controller';
 import { ProductosService } from './productos.service';
-import { MongooseModule } from '@nestjs/mongoose';
-import { ProductosSchema, Productos, ImagesSchema, Images } from './schemas';
 
+@Global()
 @Module({
-	imports: [
-		MongooseModule.forFeature([
-			{ name: Productos.name, schema: ProductosSchema },
-			{ name: Images.name, schema: ImagesSchema },
-		]),
-	],
+	imports: [TypeOrmModule.forFeature([Producto, Imagenes])],
 	controllers: [ProductosController],
 	providers: [ProductosService],
 	exports: [ProductosService],

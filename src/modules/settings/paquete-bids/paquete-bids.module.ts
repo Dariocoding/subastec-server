@@ -1,12 +1,14 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
 import { PaqueteBidsService } from './paquete-bids.service';
 import { PaqueteBidsController } from './paquete-bids.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { PaqueteBid, PaqueteBidSchema } from './schemas/paqueteBids.schema';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { PaqueteBid } from './entities/paquete-bid.entity';
 
+@Global()
 @Module({
-	imports: [MongooseModule.forFeature([{ name: PaqueteBid.name, schema: PaqueteBidSchema }])],
+	imports: [TypeOrmModule.forFeature([PaqueteBid])],
 	controllers: [PaqueteBidsController],
 	providers: [PaqueteBidsService],
+	exports: [PaqueteBidsService],
 })
 export class PaqueteBidsModule {}
