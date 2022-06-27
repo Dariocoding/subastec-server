@@ -51,7 +51,11 @@ export class CategoriasService {
 			ctgrias = shuffledArr(ctgrias);
 		}
 
-		ctgrias = [...ctgrias, { nombre: 'Paquete de Bids', idcategoria: -1, status: 1 }];
+		ctgrias = [
+			{ nombre: 'Todas', idcategoria: -2, status: 1 },
+			...ctgrias,
+			{ nombre: 'Paquete de Bids', idcategoria: -1, status: 1 },
+		];
 
 		return ctgrias;
 	}

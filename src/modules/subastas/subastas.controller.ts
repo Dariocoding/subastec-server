@@ -14,7 +14,7 @@ import { GetCurrentRolId, Public } from '../auth/common/decorators';
 import { CreateSubastasDto, UpdateSubastaDto } from './dto';
 import { SubastasService } from './subastas.service';
 import { UsersService } from '../users/users.service';
-import { IsNull } from 'typeorm';
+import { IsNull, Not } from 'typeorm';
 @Controller('subastas')
 export class SubastasController {
 	constructor(private usersService: UsersService, private subastasService: SubastasService) {}
@@ -24,9 +24,12 @@ export class SubastasController {
 		return this.subastasService.getSubastas();
 	}
 
-	@Get('not-paquete-bids')
-	getSubastasNoPaqueteBids() {
-		return this.subastasService.getSubastas({ paqueteBidId: IsNull() });
+	@Get('subastasGanadoras')
+	subastasGanadoras() {
+		return this.subastasService.getSubastas({
+			paqueteBidId: IsNull(),
+			winnerUserId: Not(IsNull()),
+		});
 	}
 
 	@Get('getLastFourSubastas')
@@ -45,6 +48,15 @@ export class SubastasController {
 		return this.subastasService.getSubastasByCategoriaId(+idcategoria, page, limit);
 	}
 
+	@Get('getSubastasHome')
+	@Public()
+	getSubastasHome(
+		@Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
+		@Query('limit', new DefaultValuePipe(6), ParseIntPipe) limit: number = 6
+	) {
+		return this.subastasService.getSubastasHome(page, limit);
+	}
+
 	@Get('getSubastasByPaqueteBids')
 	@Public()
 	getSubastasByPaqueteBids(
@@ -55,6 +67,7 @@ export class SubastasController {
 	}
 
 	@Get('/:idsubasta')
+	@Public()
 	getSubasta(@Param('idsubasta') idsubasta: string) {
 		return this.subastasService.getSubasta(+idsubasta);
 	}

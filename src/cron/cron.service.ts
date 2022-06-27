@@ -8,15 +8,9 @@ export class CronService {
 	constructor(private schedulerRegistry: SchedulerRegistry) {}
 
 	startCronJob(data: { date: string | Date; fn: Fn; name: string }) {
-		const fechaPrueba = new Date();
-		fechaPrueba.setSeconds(fechaPrueba.getSeconds() + 10);
-		const job = new CronJob(
-			/* data.date */ fechaPrueba,
-			data.fn,
-			null,
-			true,
-			'America/caracas'
-		);
+		/* const fechaPrueba = new Date();
+		fechaPrueba.setSeconds(fechaPrueba.getSeconds() + 10); */
+		const job = new CronJob(data.date, data.fn, null, true, 'America/caracas');
 		this.schedulerRegistry.addCronJob(data.name, job);
 	}
 

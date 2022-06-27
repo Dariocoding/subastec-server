@@ -15,24 +15,32 @@ export class CustomExceptionsFilter implements ExceptionFilter {
 	constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
 
 	catch(exception: HttpException, host: ArgumentsHost) {
-		console.log(exception);
-		logger.log({ level: 'error', message: exception.message });
+		const statusCode =
+			exception instanceof HttpException
+				? exception.getStatus()
+				: HttpStatus.INTERNAL_SERVER_ERROR;
+
+		if (statusCode !== HttpStatus.FORBIDDEN && statusCode !== HttpStatus.UNAUTHORIZED) {
+			if (process.env.NODE_ENV === 'development') {
+				console.log(exception);
+			}
+
+			logger.log({
+				level: 'error',
+				message: exception.stack,
+			});
+		}
 
 		const { httpAdapter } = this.httpAdapterHost;
 
 		const ctx = host.switchToHttp();
 
-		const httpStatus =
-			exception instanceof HttpException
-				? exception.getStatus()
-				: HttpStatus.INTERNAL_SERVER_ERROR;
-
 		const responseBody = {
-			statusCode: httpStatus,
+			statusCode,
 			message: exception.message,
 			error: exception.name,
 		};
 
-		httpAdapter.reply(ctx.getResponse(), responseBody, httpStatus);
+		httpAdapter.reply(ctx.getResponse(), responseBody, statusCode);
 	}
 }

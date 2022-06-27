@@ -1,18 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { Subasta } from './entities';
 import { CreateSubastasDto, UpdateSubastaDto } from './dto';
-import { convertToFloat } from 'src/utils';
+import { contarMultiplos, convertToFloat } from 'src/utils';
 import { SettingsService } from '../settings/settings/settings.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Not, Repository, IsNull, MoreThan, FindOptionsWhere } from 'typeorm';
 import { Producto } from '../productos/entities';
 import { PaqueteBid } from '../settings/paquete-bids/entities/paquete-bid.entity';
-import { SubastasDestacadasService } from '../subastas-destacadas/subastas-destacadas.service';
 import * as moment from 'moment-timezone';
 import { ProductosService } from '../productos/productos.service';
 import { PaqueteBidsService } from '../settings/paquete-bids/paquete-bids.service';
 import { CronService } from 'src/cron/cron.service';
 import { Puja } from '../puja/entities/puja.entity';
+import { MailService } from 'src/mail/mail.service';
+import { UsersService } from '../users/users.service';
+import { AdministradoresService } from '../users/modules/administradores/administradores.service';
 
 @Injectable()
 export class SubastasService {
@@ -22,11 +24,15 @@ export class SubastasService {
 		@InjectRepository(PaqueteBid) private paqueteBidRepository: Repository<PaqueteBid>,
 		@InjectRepository(Puja) private pujaRepository: Repository<Puja>,
 		private settingsService: SettingsService,
-		private subastasDestacadasService: SubastasDestacadasService,
 		private productosService: ProductosService,
 		private paqueteBidService: PaqueteBidsService,
-		private cronService: CronService
+		private cronService: CronService,
+		private mailService: MailService,
+		private adminService: AdministradoresService,
+		private usersService: UsersService
 	) {}
+
+	repository = this.subastaRepository;
 
 	async countTotalSubastas() {
 		const date = new Date();
@@ -57,11 +63,15 @@ export class SubastasService {
 			}
 		}
 
+		if (subasta.winnerUserId) {
+			subasta.winnerUser = await this.usersService.findById(subasta.winnerUserId);
+		}
+
 		return subasta;
 	}
 
-	async getSubastas(where: FindOptionsWhere<Subasta> = {}) {
-		let subastas = await this.subastaRepository
+	async getSubastas(where: FindOptionsWhere<Subasta> = {}, take?: number) {
+		let query = this.subastaRepository
 			.createQueryBuilder('subasta')
 			.select([
 				'subasta.idsubasta',
@@ -75,10 +85,13 @@ export class SubastasService {
 				'subasta.paqueteBidId',
 				'subasta.fotoSubasta',
 				'subasta.preciosubasta',
+				'subasta.winnerUserId',
 			])
 			.where({ status: Not(0), ...where })
-			.orderBy('subasta.idsubasta', 'DESC')
-			.getMany();
+			.orderBy('subasta.idsubasta', 'DESC');
+		if (take) query = query.take(take);
+		const subastas = await query.getMany();
+
 		return Promise.all(subastas.map(async s => this.setTituloSubasta(s)));
 	}
 
@@ -87,7 +100,15 @@ export class SubastasService {
 		if (s.productoid) {
 			const producto = await this.productoRepository.findOne({
 				where: { idproducto: s.productoid },
-				select: ['nombre', 'precio', 'marca'],
+				select: [
+					'categoriaid',
+					'nombre',
+					'date_created',
+					'marca',
+					'precio',
+					'ruta',
+					'status',
+				],
 			});
 			s.titulo = producto.nombre;
 			s.producto = producto;
@@ -128,6 +149,43 @@ export class SubastasService {
 		});
 
 		return Promise.all(subastas.map(async s => this.setTituloSubasta(s)));
+	}
+
+	async getSubastasHome(page: number, limit: number) {
+		const date = moment().toDate();
+		const [take, skip] = await this.#getPagination(page, limit);
+		const [subastas, totalSubastas] = await this.subastaRepository.findAndCount({
+			where: {
+				status: Not(0),
+				fechaFinalizacion: MoreThan(date),
+			},
+			order: { fechaInicio: 'ASC' },
+			take,
+			skip,
+		});
+
+		const subastasMap = await Promise.all(
+			subastas.map(async s => {
+				if (s.productoid) {
+					s.producto = await this.productoRepository.findOne({
+						where: { idproducto: s.productoid },
+						select: ['nombre', 'marca', 'date_created', 'ruta'],
+					});
+					s.titulo = s.titulo ? s.titulo : s.producto.nombre;
+				}
+				if (s.paqueteBidId) {
+					s.paqueteBid = await this.paqueteBidRepository.findOne({
+						where: { idpaquete: s.paqueteBidId },
+					});
+					s.titulo = s.titulo
+						? s.titulo
+						: 'Paquete Bids de: ' + s.paqueteBid.cantidadBids;
+				}
+				return s;
+			})
+		);
+
+		return { totalSubastas, subastas: subastasMap };
 	}
 
 	async getSubastasByCategoriaId(categoriaid: number, page: number, limit: number) {
@@ -182,9 +240,7 @@ export class SubastasService {
 		if (page === 1) {
 			take = config.cantidad_subastas_inicio;
 			skip = 0;
-		} else {
-			skip = config.cantidad_subastas_inicio + (page - 1) * take - take;
-		}
+		} else skip = config.cantidad_subastas_inicio + (page - 1) * take - take;
 		return [take, skip];
 	}
 
@@ -228,16 +284,60 @@ export class SubastasService {
 
 	async #onFinishCronJobSubasta(subasta: Subasta) {
 		subasta = await this.getSubasta(subasta.idsubasta);
+		type PujaSelect = Array<{ puja_userid: number; sumaBids: string }>;
+		const pujas: PujaSelect = await this.pujaRepository
+			.createQueryBuilder('puja')
+			.select(['puja.userid'])
+			.addSelect('SUM(puja.cantidadBids) sumaBids')
+			.groupBy('puja.userid')
+			.orderBy('SUM(puja.cantidadBids)', 'DESC')
+			.where({ subastaid: subasta.idsubasta })
+			.getRawMany();
+
+		const devolverBidsUsuarios = async (users: PujaSelect) => {
+			for (let i = 0; i < users.length; i++) {
+				const { puja_userid, sumaBids } = users[i];
+				const bidsParaSumar = contarMultiplos({
+					multiplo: 10,
+					cantidad: parseInt(sumaBids),
+				});
+				const bids = parseInt(sumaBids) + bidsParaSumar;
+				await this.adminService.addBidsUser({ iduser: puja_userid, bids });
+			}
+		};
+
+		if (!pujas.length) return;
 		if (subasta.preciominimo <= subasta.preciosubasta) {
-			const pujas = await this.pujaRepository
-				.createQueryBuilder('puja')
-				.select(['puja.userid'])
-				.addSelect('SUM(puja.cantidadBids) sumaBids')
-				.groupBy('puja.userid')
-				.orderBy('SUM(puja.cantidadBids)', 'DESC')
-				.where({ subastaid: subasta.idsubasta })
-				.getRawMany();
-		} else {
-		}
+			const usuarioGanador = pujas[0];
+			await this.subastaRepository.update(subasta.idsubasta, {
+				winnerUserId: usuarioGanador.puja_userid,
+			});
+			const usuariosPerdedores = pujas.filter(
+				p => p.puja_userid !== usuarioGanador.puja_userid
+			);
+
+			await devolverBidsUsuarios(usuariosPerdedores);
+
+			if (subasta?.producto?.codigoTarjeta) {
+				const user = await this.usersService.findById(
+					usuarioGanador.puja_userid
+				);
+				await this.mailService.enviarCorreoCodigoTarjetaSubasta(
+					subasta.producto,
+					user,
+					subasta.fotoSubasta
+				);
+			}
+
+			if (subasta.paqueteBid) {
+				let bids = subasta.paqueteBid.cantidadBids;
+				if (subasta.paqueteBid.bonus) bids += subasta.paqueteBid.bonus;
+				await this.adminService.addBidsUser({
+					iduser: usuarioGanador.puja_userid,
+					statusAddRemoveBids: 'add',
+					bids,
+				});
+			}
+		} else await devolverBidsUsuarios(pujas);
 	}
 }

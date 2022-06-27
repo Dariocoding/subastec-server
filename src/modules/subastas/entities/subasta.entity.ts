@@ -3,6 +3,8 @@ import { Producto } from 'src/modules/productos/entities';
 import { Puja } from 'src/modules/puja/entities/puja.entity';
 import { PaqueteBid } from 'src/modules/settings/paquete-bids/entities/paquete-bid.entity';
 import { SubastaDestacada } from 'src/modules/subastas-destacadas/entities/subastas-destacada.entity';
+import { SubastasReclamos } from 'src/modules/subastas-reclamos/entities/subastas-reclamo.entity';
+import { User } from 'src/modules/users/entities';
 import {
 	Column,
 	CreateDateColumn,
@@ -10,6 +12,7 @@ import {
 	JoinColumn,
 	ManyToOne,
 	OneToMany,
+	OneToOne,
 	PrimaryGeneratedColumn,
 } from 'typeorm';
 
@@ -59,6 +62,13 @@ export class Subasta {
 	@Column({ type: 'int', default: 1 })
 	status: number;
 
+	@Column({ type: 'int', nullable: true, name: 'winnerUserId' })
+	winnerUserId: number;
+
+	@ManyToOne(() => User, user => user.subastasGanadas)
+	@JoinColumn({ name: 'winnerUserId' })
+	winnerUser: User;
+
 	@OneToMany(() => Favorito, favorito => favorito.subasta)
 	favoritos?: Favorito[];
 
@@ -67,6 +77,9 @@ export class Subasta {
 
 	@OneToMany(() => SubastaDestacada, subastaDestacada => subastaDestacada.subasta)
 	subastasDestacadas: SubastaDestacada[];
+
+	@OneToOne(() => SubastasReclamos, subastaReclamo => subastaReclamo.subasta)
+	subastaReclamo: SubastasReclamos;
 
 	totalPujas: number;
 }

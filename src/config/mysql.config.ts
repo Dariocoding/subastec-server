@@ -12,6 +12,7 @@ import { SubastaDestacada } from 'src/modules/subastas-destacadas/entities/subas
 import { Subasta } from 'src/modules/subastas/entities';
 import { Invitacion, Rol, User } from 'src/modules/users/entities';
 import { SnakeNamingStrategy } from 'typeorm-naming-strategies';
+import { SubastasReclamos } from 'src/modules/subastas-reclamos/entities/subastas-reclamo.entity';
 
 const pathEnv = process.env.NODE_ENV || 'production';
 
@@ -40,6 +41,7 @@ export const dataSourceTypeOrm: DataSourceOptions = {
 		Imagenes,
 		Invitacion,
 		SubastaDestacada,
+		SubastasReclamos,
 	],
 
 	synchronize: false,
@@ -47,7 +49,7 @@ export const dataSourceTypeOrm: DataSourceOptions = {
 
 	migrationsRun: pathEnv === 'development' ? true : false,
 
-	logging: pathEnv === 'development' ? true : false,
+	logging: pathEnv === 'development' ? false : false,
 };
 
 const exportsData = new DataSource(dataSourceTypeOrm);

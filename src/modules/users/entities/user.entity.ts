@@ -1,6 +1,7 @@
 import { Favorito } from 'src/modules/favoritos/entities';
 import { Pago } from 'src/modules/pagos/entities/pago.entity';
 import { Puja } from 'src/modules/puja/entities/puja.entity';
+import { Subasta } from 'src/modules/subastas/entities';
 import {
 	Column,
 	CreateDateColumn,
@@ -23,10 +24,10 @@ export class User {
 	username?: string;
 
 	@Column({ nullable: true })
-	nombres: string;
+	nombres?: string;
 
 	@Column({ nullable: true })
-	apellidos: string;
+	apellidos?: string;
 
 	@Column({ nullable: true })
 	hashedRt?: string;
@@ -54,7 +55,7 @@ export class User {
 		type: 'timestamp',
 		default: () => 'CURRENT_TIMESTAMP',
 	})
-	date_created: Date;
+	date_created?: Date;
 
 	@Column({ nullable: true })
 	facebookID?: string;
@@ -79,11 +80,14 @@ export class User {
 	favoritos?: Favorito[];
 
 	@OneToMany(() => Puja, puja => puja.user)
-	pujas: Puja[];
+	pujas?: Puja[];
 
 	@OneToMany(() => Invitacion, invitacion => invitacion.userReferenced)
-	referencedUsers: Invitacion[];
+	referencedUsers?: Invitacion[];
+
+	@OneToMany(() => Subasta, subasta => subasta.winnerUser)
+	subastasGanadas?: Subasta[];
 
 	@OneToOne(() => Invitacion, invitacion => invitacion.userInvited)
-	invitedUser: Invitacion;
+	invitedUser?: Invitacion;
 }

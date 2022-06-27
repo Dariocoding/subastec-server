@@ -2,7 +2,6 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { UserDto } from '../users/dto';
 import * as bcrypt from 'bcrypt';
-import { Tokens } from './types/tokens.type';
 //@ts-ignore
 import { JwtService } from '@nestjs/jwt';
 import { AuthDto, FacebookAuthDto, GoogleAuthDto } from './dto';
@@ -119,7 +118,7 @@ export class AuthService {
 			this.jwtService.signAsync(
 				{ iduser: user.iduser, rolid: user.rolid },
 				{
-					expiresIn: '1h',
+					expiresIn: '1d',
 					secret: process.env.ACCESS_TOKEN_SECRET,
 				}
 			),

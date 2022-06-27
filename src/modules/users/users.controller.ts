@@ -42,12 +42,10 @@ export class UsersController {
 			if (!user) throw new NotFoundException('Usuario no encontrador');
 		}
 		const { email_user } = user;
-		const { APPWEB } = process.env;
 		const token = Token();
 		await this.usersService.updateTokenUser(user.iduser, token);
-		const urlRecovery = APPWEB + `/recuperar-usuario/${email_user}/${token}`;
 
-		await this.mailService.forgetPassword({ urlRecovery, user });
+		await this.mailService.forgetPassword(user);
 
 		return {
 			msg: `Se le ha enviado un correo a su usuario, 

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { SubastasDestacadasService } from './subastas-destacadas.service';
 import { SubastasDestacadaDto } from './dto/subastas-destacada.dto';
 
@@ -14,6 +14,11 @@ export class SubastasDestacadasController {
 	@Get()
 	findAll() {
 		return this.subastasDestacadasService.findAll();
+	}
+
+	@Get('getTenSubastasDestacadas')
+	getTenSubastasDestacadas() {
+		return this.subastasDestacadasService.getTenSubastasDestacadas();
 	}
 
 	@Delete(':id')

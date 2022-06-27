@@ -1,32 +1,47 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Query } from '@nestjs/common';
 import { PujaService } from './puja.service';
 import { PujaDto } from './dto/puja.dto';
-import { GetCurrentUserId, Public } from '../auth/common/decorators';
+import { Public } from '../auth/common/decorators';
+import { FindOptionsWhere } from 'typeorm';
+import { Puja } from './entities/puja.entity';
 
 @Controller('puja')
 export class PujaController {
 	constructor(private readonly pujaService: PujaService) {}
 
-	@Post()
-	async create(@Body() createPujaDto: PujaDto, @GetCurrentUserId() currentUserId: number) {
-		const bidsRestantes = await this.pujaService.create(currentUserId, createPujaDto);
-		return { msg: 'Has pujado exitosamente!', bidsRestantes };
-	}
-
-	@Get('findBySubastaId/:subastaid')
+	@Post(':userid')
 	@Public()
-	findBySubastaId(@Param('subastaid') subastaid: string) {
-		return this.pujaService.findAll({ where: { subastaid: +subastaid }, take: 10 });
+	async create(@Body() createPujaDto: PujaDto, @Param('userid') userid: string) {
+		const data = await this.pujaService.create(+userid, createPujaDto);
+		return { msg: 'Has pujado exitosamente!', ...data };
 	}
 
-	@Get('findAllBySubastaId/:subastaid')
+	@Get()
 	@Public()
-	findAllBySubastaId(@Param('subastaid') subastaid: string) {
-		return this.pujaService.findAll({ where: { subastaid: +subastaid } });
+	findPujas(
+		@Query('userid') userid: string,
+		@Query('subastaid') subastaid: string,
+		@Query('take') take: number
+	) {
+		const where: FindOptionsWhere<Puja> = {};
+		if (userid) where.userid = +userid;
+		if (subastaid) where.subastaid = +subastaid;
+		return this.pujaService.findAll({ where, take });
 	}
 
-	@Get('findByUser')
-	findByUserId(@GetCurrentUserId() userid: number) {
-		return this.pujaService.findAll({ where: { userid } });
+	@Get('findSubastasGroup')
+	findSubastasGroup(
+		@Query('userid') userid: string,
+		@Query('winnerUserId') winnerUserId: string
+	) {
+		const where: FindOptionsWhere<Puja> = {};
+		if (userid) where.userid = +userid;
+		if (winnerUserId) {
+			where.subasta = {
+				winnerUserId: +winnerUserId,
+			};
+		}
+
+		return this.pujaService.findPujasGroupBySubastas(where);
 	}
 }

@@ -22,6 +22,7 @@ import { PujaModule } from './modules/puja/puja.module';
 import { SubastasDestacadasModule } from './modules/subastas-destacadas/subastas-destacadas.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import { CronModule } from './cron/cron.module';
+import { SubastasReclamosModule } from './modules/subastas-reclamos/subastas-reclamos.module';
 
 @Global()
 @Module({
@@ -52,6 +53,7 @@ import { CronModule } from './cron/cron.module';
 		PujaModule,
 		SubastasDestacadasModule,
 		CronModule,
+		SubastasReclamosModule,
 	],
 
 	providers: [
