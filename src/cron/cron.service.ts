@@ -10,7 +10,7 @@ export class CronService {
 	startCronJob(data: { date: string | Date; fn: Fn; name: string }) {
 		/* const fechaPrueba = new Date();
 		fechaPrueba.setSeconds(fechaPrueba.getSeconds() + 10); */
-		const job = new CronJob(data.date, data.fn, null, true, 'America/caracas');
+		const job = new CronJob(data.date, data.fn, null, true, 'America/guayaquil');
 		this.schedulerRegistry.addCronJob(data.name, job);
 	}
 
