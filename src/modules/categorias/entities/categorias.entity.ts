@@ -18,7 +18,7 @@ export class Categoria {
 	@Column('int')
 	status?: number;
 
-	@Column()
+	@Column({ nullable: true })
 	portada?: string;
 
 	totalproductos?: number;

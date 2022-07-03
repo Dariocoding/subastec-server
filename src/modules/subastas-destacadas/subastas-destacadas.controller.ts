@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Body, Param, Delete } from '@nestjs/common';
 import { SubastasDestacadasService } from './subastas-destacadas.service';
 import { SubastasDestacadaDto } from './dto/subastas-destacada.dto';
+import { Public } from '../auth/common/decorators';
 
 @Controller('subastas-destacadas')
 export class SubastasDestacadasController {
@@ -17,6 +18,7 @@ export class SubastasDestacadasController {
 	}
 
 	@Get('getTenSubastasDestacadas')
+	@Public()
 	getTenSubastasDestacadas() {
 		return this.subastasDestacadasService.getTenSubastasDestacadas();
 	}

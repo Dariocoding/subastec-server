@@ -9,7 +9,7 @@ export class SubastasReclamosController {
 
 	@Post()
 	create(@Body() createSubastasReclamoDto: CreateSubastasReclamoDto) {
-		return this.subastasReclamosService.create(createSubastasReclamoDto);
+		return { msg: 'Has hecho tu reclamo de subas'}
 	}
 
 	@Get()
