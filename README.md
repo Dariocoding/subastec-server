@@ -7,14 +7,14 @@ Para la estructura de trabajo tenemos la carpeta config en donde colocamos toda 
 ## En modules tenemos
 
 En auth tenemos todo lo que son autenticaciones <br/>
-categorias [Categorias de subastas]
-dashboard [Dashboard subastec donde se traen resumenes de las subastas]
-favoritos [Subastas favoritas de los usuarios]
-pagos [Pagos hechos en el sitio web]
-productos [Productos relacionados a las subastas]
-puja [Pujas relacionadas a subastas]
-settings [Configuracion general]
-subastas [Subastas agregadas por el administrador]
-subastas-destacadas [Subastas destacadas por el administrador]
-subastas-reclamos [Reclamos de subastas hechas por los ganadores de las subastas]
-users [Usuarios de subastec]
+categorias [Categorias de subastas]<br/>
+dashboard [Dashboard subastec donde se traen resumenes de las subastas] <br/>
+favoritos [Subastas favoritas de los usuarios] <br/>
+pagos [Pagos hechos en el sitio web] <br/>
+productos [Productos relacionados a las subastas] <br/>
+puja [Pujas relacionadas a subastas] <br/>
+settings [Configuracion general] <br/>
+subastas [Subastas agregadas por el administrador] <br/>
+subastas-destacadas [Subastas destacadas por el administrador] <br/>
+subastas-reclamos [Reclamos de subastas hechas por los ganadores de las subastas] <br/>
+users [Usuarios de subastec] <br/>
